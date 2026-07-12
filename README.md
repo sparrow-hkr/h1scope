@@ -45,6 +45,10 @@ chmod +x h1scope.py
 ```bash
 sudo ln -s "$(pwd)/h1scope.py" /usr/local/bin/h1scope
 ```
+### or uses tool inside git repo
+```bash
+python3 mani.py --help
+```
 ## Usage
 ```text
 positional arguments:
@@ -85,7 +89,7 @@ h1scope program_scope.csv --in-scope -t cidr | naabu -p - -o open_ports.txt
 If you want to grab absolutely every valid asset type in the document without filtering by technology layer, simply omit the -t flag entirely:
 
 ```bash
-python3 h1scope.py scope.csv --in-scope -o entire_scope.txt
+h1scope scope.csv --in-scope -o entire_scope.txt
 ```
 
 ### 5. Identify Banned/Out-of-Scope Targets

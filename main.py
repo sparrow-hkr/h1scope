@@ -88,8 +88,8 @@ if __name__ == '__main__':
     scope_group.add_argument('--out-of-scope', dest='scope', action='store_const', const='out', help="Filter for Out-of-Scope targets only")
     
     # Asset Type Flags
-    parser.add_argument('-t', '--type', nargs='+', choices=['url', 'domain', 'wildcard', 'cidr', 'android', 'ios'], 
-                        help="Filter by specific asset types (space separated)")
+    parser.add_argument('-t', '--type', nargs='+', 
+                    help="Filter by specific asset types like wildcard, domain, url, cidr, android, ios (space separated)")
     
     # Output Flag
     parser.add_argument('-o', '--output', help="Output file path (prints to terminal if omitted)")

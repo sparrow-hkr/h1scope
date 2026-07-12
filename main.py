@@ -77,7 +77,10 @@ def parse_scope(csv_path, scope_type, asset_types, output_file):
             print(item)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="HackerOne CSV Scope Parser for Recon Pipelines")
+    parser = argparse.ArgumentParser(
+        prog="h1scope", # <--- Add this line so the help menu says 'h1scope' instead of 'main.py'
+        description="HackerOne CSV Scope Parser for Recon Pipelines"
+    )
     
     # Positional positional argument
     parser.add_argument('csv', help="Path to the HackerOne exported .csv file")

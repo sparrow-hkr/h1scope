@@ -58,7 +58,7 @@ def parse_scope(csv_path, scope_type, asset_types, output_file):
         # Apply the type filter
         if 'wildcard' in asset_types:
             # Special case for wildcards since they often contain '*' in the identifier
-            df = df[df['asset_type'].isin(target_types) | df['identifier'].str.contains('\*', na=False)]
+            df = df[df['asset_type'].isin(target_types) | df['identifier'].str.contains(r'\*', na=False)]
         else:
             df = df[df['asset_type'].isin(target_types)]
 

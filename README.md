@@ -39,7 +39,7 @@ pip install pandas
 ```
 ### Make Executable (Linux/macOS)
 ```bash
-chmod +x h1scope.py
+chmod +x main.py
 ```
 ### Optional: link to your local bin to run as a global command
 ```bash

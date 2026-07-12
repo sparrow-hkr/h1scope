@@ -3,7 +3,9 @@ import argparse
 import sys
 import pandas as pd
 
-def parse_scope(csv_path, scope_type, asset_types, output_file):
+VERSION = "1.0.0"
+
+def parse_scope(csv_path, scope_type, asset_types, output_file, show_counts=False):
     try:
         # Load the CSV
         df = pd.read_csv(csv_path)
@@ -36,11 +38,12 @@ def parse_scope(csv_path, scope_type, asset_types, output_file):
 
     # 2. Asset Type Filtering
     if asset_types:
-        # Map user-friendly flags to standard HackerOne asset_type strings
+        # Map user-friendly flags to standard HackerOne asset_type strings.
+        # Keep the matching exact so `-t wildcard` only returns wildcard rows.
         type_mapping = {
             'url': ['URL'],
             'domain': ['DOMAIN'],
-            'wildcard': ['WILDCARD', 'URL'], # Wildcards sometimes appear as URLs/Wildcards
+            'wildcard': ['WILDCARD'],
             'cidr': ['CIDR', 'IP_ADDRESS', 'IP'],
             'android': ['GOOGLE_PLAY_APP_ID', 'ANDROID_APP_APK'],
             'ios': ['APPLE_APP_STORE_ID', 'IOS_APP_IPA']
@@ -55,12 +58,9 @@ def parse_scope(csv_path, scope_type, asset_types, output_file):
                 # Fallback to literal matching if user types something specific
                 target_types.append(t.upper())
         
-        # Apply the type filter
-        if 'wildcard' in asset_types:
-            # Special case for wildcards since they often contain '*' in the identifier
-            df = df[df['asset_type'].isin(target_types) | df['identifier'].str.contains(r'\*', na=False)]
-        else:
-            df = df[df['asset_type'].isin(target_types)]
+        # Apply the type filter using normalized casing for resilient matching.
+        asset_type_values = df['asset_type'].fillna('').astype(str).str.upper()
+        df = df[asset_type_values.isin(target_types)]
 
     # Extract clean list of identifiers
     results = df['identifier'].dropna().unique()
@@ -76,14 +76,32 @@ def parse_scope(csv_path, scope_type, asset_types, output_file):
         for item in results:
             print(item)
 
+    if show_counts:
+        print(f"[+] Matched {len(results)} targets", file=sys.stderr)
+
+
+def list_types():
+    types = [
+        ('wildcard', 'Wildcard subdomain entries'),
+        ('domain', 'Apex/root domains'),
+        ('url', 'Specific endpoints, paths, or APIs'),
+        ('cidr', 'Network ranges and standalone IPs'),
+        ('android', 'Google Play IDs and APK targets'),
+        ('ios', 'App Store IDs and IPA targets'),
+    ]
+
+    print("Supported types:")
+    for name, description in types:
+        print(f"  {name:<9} {description}")
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        prog="h1scope", # <--- Add this line so the help menu says 'h1scope' instead of 'main.py'
+        prog="h1scope",
         description="HackerOne CSV Scope Parser for Recon Pipelines"
     )
     
     # Positional positional argument
-    parser.add_argument('csv', help="Path to the HackerOne exported .csv file")
+    parser.add_argument('csv', nargs='?', help="Path to the HackerOne exported .csv file")
     
     # Scope Flags
     scope_group = parser.add_mutually_exclusive_group()
@@ -93,10 +111,22 @@ if __name__ == '__main__':
     # Asset Type Flags
     parser.add_argument('-t', '--type', nargs='+', 
                     help="Filter by specific asset types like wildcard, domain, url, cidr, android, ios (space separated)")
+
+    # Helper Flags
+    parser.add_argument('--list-types', action='store_true', help="Show supported asset types and exit")
+    parser.add_argument('--show-counts', action='store_true', help="Print the number of matched targets to stderr")
+    parser.add_argument('--version', '--sersion', action='version', version=f"%(prog)s {VERSION}", help="Show version and exit")
     
     # Output Flag
     parser.add_argument('-o', '--output', help="Output file path (prints to terminal if omitted)")
 
     args = parser.parse_args()
+
+    if args.list_types:
+        list_types()
+        sys.exit(0)
+
+    if not args.csv:
+        parser.error("the following arguments are required: csv")
     
-    parse_scope(args.csv, args.scope, args.type, args.output)
+    parse_scope(args.csv, args.scope, args.type, args.output, args.show_counts)

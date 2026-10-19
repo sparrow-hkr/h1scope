@@ -9,10 +9,10 @@ Install Go, clone the repository, and build the executable:
 ```bash
 git clone https://github.com/sparrow-hkr/h1scope.git
 cd h1scope
-go build -o h1scope main.go
+go build
 ```
 
-The program uses only the Go standard library. There is no `go.mod` file or third-party dependency to install.
+The program uses only the Go standard library; `go.mod` defines its module path without adding third-party dependencies.
 
 Check the build with:
 

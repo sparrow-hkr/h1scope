@@ -1,249 +1,109 @@
 # h1scope
 
-[![Python Version](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)]()
+`h1scope` is a Go command-line tool that extracts target identifiers from a HackerOne scope CSV export. It can filter by scope and asset type, then print a unique target list or write it to a file.
 
-`h1scope` is a lightweight command-line tool for parsing HackerOne scope exports and turning them into clean, filtered target lists.
+## Build
 
-It is designed for bug hunters, security researchers, and recon pipelines that need quick access to:
-
-- in-scope or out-of-scope targets
-- wildcard domains
-- apex domains
-- URLs
-- CIDR blocks and IPs
-- Android and iOS app targets
-
-The tool reads a HackerOne CSV export, filters rows by scope and asset type, and prints the matching identifiers to standard output or writes them to a file.
-
-## Highlights
-
-- Scope filtering with `--in-scope` and `--out-of-scope`
-- Multiple asset types with `-t` / `--type`
-- Strict wildcard matching for `-t wildcard`
-- Output to stdout for piping, or `-o` for file export
-- `--list-types` to show supported asset families
-- `--show-counts` to print the number of matched rows
-- `--version` and `--sersion` for version output
-
-## Installation
-
-### Requirements
-
-- Python 3.7 or newer
-- `pip`
-
-### Clone the repository
+Install Go, clone the repository, and build the executable:
 
 ```bash
 git clone https://github.com/sparrow-hkr/h1scope.git
 cd h1scope
+go build -o h1scope main.go
 ```
 
-### Install dependencies
+The program uses only the Go standard library. There is no `go.mod` file or third-party dependency to install.
+
+Check the build with:
 
 ```bash
-pip install pandas
+./h1scope --version
+./h1scope --help
 ```
 
-### Make the script executable
+You can also run it without building an executable:
 
 ```bash
-chmod +x main.py
-```
-
-### Optional: install as a local command
-
-```bash
-sudo ln -s "$(pwd)/main.py" /usr/local/bin/h1scope
-```
-
-### Verify the tool
-
-```bash
-python3 main.py --help
+go run main.go --list-types
 ```
 
 ## Usage
 
 ```text
-usage: h1scope [-h] [--in-scope | --out-of-scope] [-t TYPE [TYPE ...]]
-               [--list-types] [--show-counts] [--version] [-o OUTPUT]
-               [csv]
-
-positional arguments:
-  csv                   Path to the HackerOne exported .csv file
-
-options:
-  -h, --help            show this help message and exit
-  --in-scope            Filter for In-Scope targets only
-  --out-of-scope        Filter for Out-of-Scope targets only
-  -t, --type TYPE [TYPE ...]
-                        Filter by specific asset types
-  --list-types          Show supported asset types and exit
-  --show-counts         Print the number of matched targets to stderr
-  --version, --sersion  Show version and exit
-  -o, --output OUTPUT   Output file path
+h1scope [options] <csv>
 ```
 
-## Supported Asset Types
+Put options **before** the CSV path. The Go flag parser stops reading options at the first positional argument.
 
-Use `--list-types` to see the current supported families:
+| Option | Behavior |
+| --- | --- |
+| `--in-scope` | Include targets eligible for submission unless their instruction contains `out of scope`. |
+| `--out-of-scope` | Include targets that are ineligible for submission or whose instruction contains `out of scope`. |
+| `-t TYPE`, `--type TYPE` | Include a specific asset type. Repeat the option to include multiple types. |
+| `-o FILE`, `--output FILE` | Write identifiers to a file instead of standard output. |
+| `--show-counts` | Print the number of unique matching identifiers to standard error. |
+| `--list-types` | Show the supported type families; no CSV file is needed. |
+| `--version` | Show the version; no CSV file is needed. |
+| `-h`, `--help` | Show command help. |
+
+`--in-scope` and `--out-of-scope` cannot be used together. With neither option, all rows are eligible for the asset type filter.
+
+### Asset types
+
+| Type | CSV `asset_type` values |
+| --- | --- |
+| `wildcard` | `WILDCARD` |
+| `domain` | `DOMAIN` |
+| `url` | `URL` |
+| `cidr` | `CIDR`, `IP_ADDRESS`, `IP` |
+| `android` | `GOOGLE_PLAY_APP_ID`, `ANDROID_APP_APK` |
+| `ios` | `APPLE_APP_STORE_ID`, `IOS_APP_IPA` |
+
+Type matching ignores letter case. A value outside this table is matched directly against the CSV `asset_type` value, so you can filter for another asset type present in your export. Each `-t` or `--type` option takes **one** value: use `-t wildcard -t domain`, not `-t wildcard domain`.
+
+### Examples
+
+Print in-scope wildcard targets:
 
 ```bash
-h1scope --list-types
+./h1scope --in-scope -t wildcard program_scope.csv
 ```
 
-Supported values:
-
-- `wildcard` - wildcard subdomain entries
-- `domain` - apex or root domains
-- `url` - endpoints, paths, or APIs
-- `cidr` - network ranges and standalone IPs
-- `android` - Google Play IDs and APK targets
-- `ios` - App Store IDs and IPA targets
-
-## Output Behavior
-
-By default, the tool prints matching identifiers to `stdout`, which makes it easy to pipe into other tools.
-
-Example:
+Print in-scope wildcards and domains:
 
 ```bash
-h1scope program_scope.csv --in-scope -t wildcard | subfinder
+./h1scope --in-scope -t wildcard -t domain program_scope.csv
 ```
 
-If you pass `-o`, the results are written to a file instead:
+Write out-of-scope identifiers to a file and report the count:
 
 ```bash
-h1scope program_scope.csv --in-scope -t wildcard -o wildcards.txt
+./h1scope --out-of-scope --show-counts -o excluded.txt program_scope.csv
 ```
 
-If you also pass `--show-counts`, the count is printed to `stderr` so it does not interfere with piping.
-
-## Examples
-
-### 1. Show all in-scope wildcard targets
+Print CIDR and IP targets for use in a pipeline:
 
 ```bash
-h1scope program_scope.csv --in-scope -t wildcard
+./h1scope --in-scope -t cidr program_scope.csv
 ```
 
-### 2. Export in-scope wildcard targets to a file
+When `-o` is omitted, identifiers go to standard output, one per line. Duplicate identifiers and empty identifiers are omitted; the first occurrence determines output order. With `-o`, the file receives the identifiers and a completion message goes to standard output. `--show-counts` writes its count to standard error.
 
-```bash
-h1scope program_scope.csv --in-scope -t wildcard -o wildcards.txt
-```
+## CSV format
 
-### 3. Combine multiple asset types
-
-```bash
-h1scope program_scope.csv --in-scope -t wildcard domain url
-```
-
-This returns any row matching one of the requested types.
-
-### 4. Pipe wildcard targets into subfinder
-
-```bash
-h1scope program_scope.csv --in-scope -t wildcard | subfinder
-```
-
-### 5. Pipe network targets into naabu
-
-```bash
-h1scope program_scope.csv --in-scope -t cidr | naabu -p -
-```
-
-### 6. Export all out-of-scope entries
-
-```bash
-h1scope program_scope.csv --out-of-scope -o do_not_touch.txt
-```
-
-### 7. Show the matched row count
-
-```bash
-h1scope program_scope.csv --in-scope -t wildcard --show-counts
-```
-
-### 8. Show the version
-
-```bash
-h1scope --version
-```
-
-## Type Matching Notes
-
-The `-t` / `--type` flag accepts multiple values separated by spaces.
-
-Important behavior:
-
-- type matching is exact by asset family
-- `-t wildcard` returns wildcard rows only
-- multiple values are combined with OR logic
-- unrecognized values are matched literally in uppercase form
-
-Examples:
-
-```bash
-h1scope program_scope.csv --in-scope -t wildcard domain
-h1scope program_scope.csv --in-scope -t url cidr
-```
-
-## Tips for Better Results
-
-- Use `--in-scope` when you want active targets only
-- Use `--out-of-scope` when you want to track exclusions
-- Use `-t wildcard` for subdomain recon pipelines
-- Use `-t cidr` for infrastructure scanning workflows
-- Use `--show-counts` when you want a quick sanity check on the number of matches
-
-## CSV Requirements
-
-The exporter expects these columns in the HackerOne CSV:
+The first row must contain these columns:
 
 - `identifier`
 - `asset_type`
 - `eligible_for_submission`
 
-If `instruction` is present, it is used to help detect out-of-scope rows.
+Column names are matched without regard to case or surrounding spaces. The optional `instruction` column is checked for the phrase `out of scope`, ignoring case. For `eligible_for_submission`, `true`, `1`, `yes`, `y`, and `t` count as true; other values count as false.
 
-## Common Workflows
+For example:
 
-### Recon pipeline
-
-```bash
-h1scope program_scope.csv --in-scope -t wildcard | subfinder | httpx -silent
+```csv
+identifier,asset_type,eligible_for_submission,instruction
+*.example.com,WILDCARD,true,
+example.com,DOMAIN,true,
+old.example.com,DOMAIN,false,Out of scope
 ```
-
-### Port scanning
-
-```bash
-h1scope program_scope.csv --in-scope -t cidr | naabu -p -
-```
-
-### Full scope export
-
-```bash
-h1scope program_scope.csv --in-scope -o entire_scope.txt
-```
-
-## Troubleshooting
-
-### The tool prints an error about missing columns
-
-Make sure the CSV is a HackerOne scope export and contains the required columns listed above.
-
-### `--list-types` works without a CSV
-
-This is intentional. It is a helper command and does not require an input file.
-
-### `--show-counts` does not change the output stream
-
-This is also intentional. The count is written to `stderr` so you can still pipe results cleanly.
-
-## License
-
-Distributed under the MIT License. See `LICENSE` for details.
